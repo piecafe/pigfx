@@ -34,7 +34,6 @@ volatile char* uart_buffer_limit;
 extern unsigned int pheap_space;
 extern unsigned int heap_sz;
 
-
 #if ENABLED(SKIP_BACKSPACE_ECHO)
 volatile unsigned int backspace_n_skip;
 volatile unsigned int last_backspace_t;
@@ -50,6 +49,14 @@ static void _keypress_handler(const char* str )
     {
          char ch = *c;
          //ee_printf("CHAR 0x%x\n",ch );
+
+#if ENABLED(SEND_CR_ONLY)
+        // DR: PianoMan's CR only fix
+	if( ch == 10 )
+	{
+		ch = 13;
+	}
+#endif
 
 #if ENABLED(SEND_CR_LF)
         if( ch == 10 )
@@ -366,7 +373,7 @@ void term_main_loop()
         usleep(100000 );
     /**/
 
-    gfx_term_putstring( "\x1B[2J" );
+    gfx_term_putstring( "\x1B[2J", 0 );
 
     char strb[2] = {0,0};
 
@@ -393,7 +400,7 @@ void term_main_loop()
             }
 #endif
 
-            gfx_term_putstring( strb );
+            gfx_term_putstring( strb, NO_IMPLICIT_CR ); // DR: No implicit CR before LR
         }
 
         uart_fill_queue(0);
@@ -418,11 +425,11 @@ void entry_point()
     
     initialize_framebuffer();
 
-    gfx_term_putstring( "\x1B[2J" ); // Clear screen
+    gfx_term_putstring( "\x1B[2J", 0 ); // Clear screen
     gfx_set_bg(27);
-    gfx_term_putstring( "\x1B[2K" ); // Render blue line at top
+    gfx_term_putstring( "\x1B[2K", 0 ); // Render blue line at top
     ee_printf(" ===  PiGFX ===  v.%s\n", PIGFX_VERSION );
-    gfx_term_putstring( "\x1B[2K" );
+    gfx_term_putstring( "\x1B[2K", 0 );
     //gfx_term_putstring( "\x1B[2K" ); 
     ee_printf(" Copyright (c) 2016 Filippo Bergamasco\n\n");
     gfx_set_bg(0);
@@ -461,6 +468,12 @@ void entry_point()
 
     else ee_printf("USB initialization failed.\n");
 #endif
+
+    // DR: Echo terminal geometry
+    unsigned int cols, rows, width, height;
+    gfx_get_term_size(&rows, &cols);
+    gfx_get_resolution(&width, &height);
+    ee_printf("Terminal geometry: %dx%d (%dx%dpx)\n", cols, rows, width, height);
 
     ee_printf("---------\n");
     term_main_loop();

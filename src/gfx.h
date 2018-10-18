@@ -9,6 +9,7 @@ extern void gfx_set_bg( GFX_COL col );
 extern void gfx_set_fg( GFX_COL col );
 extern void gfx_swap_fg_bg();
 extern void gfx_get_term_size( unsigned int* rows, unsigned int* cols );
+extern void gfx_get_resolution( unsigned int* width, unsigned int* height );
 
 /*! 
  * Fills the entire framebuffer with the background color 
@@ -49,12 +50,11 @@ extern void gfx_scroll_down( unsigned int npixels );
 extern void gfx_scroll_up( unsigned int npixels );
 
 
-
 /*!
  *  Terminal
  *
  */
-extern void gfx_term_putstring( const char* str );
+extern void gfx_term_putstring( const char* str, unsigned int flags );
 extern void gfx_term_set_cursor_visibility( unsigned char visible );
 extern void gfx_term_move_cursor( unsigned int row, unsigned int col );
 extern void gfx_term_move_cursor_d( int delta_row, int delta_col );
@@ -65,5 +65,6 @@ extern void gfx_term_clear_till_cursor();
 extern void gfx_term_clear_line();
 extern void gfx_term_clear_screen();
 
+#define NO_IMPLICIT_CR 0x01
 
 #endif

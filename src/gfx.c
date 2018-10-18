@@ -11,18 +11,8 @@ static unsigned char* FNT = &G_FONT_GLYPHS;
 #define MIN( v1, v2 ) ( ((v1) < (v2)) ? (v1) : (v2))
 #define MAX( v1, v2 ) ( ((v1) > (v2)) ? (v1) : (v2))
 #define PFB( X, Y ) ( ctx.pfb + Y*ctx.Pitch + X )
-
-void __swap__( int* a, int* b )
-{
-    int aux = *a;
-    *a = *b;
-    *b = aux;
-}
-
-int __abs__( int a )
-{
-    return a<0?-a:a;
-}
+#define SWAP( a, b ) { int aux = (a); (a) = (b); (b) = aux; }
+#define ABS( a ) (((a)<0) ? (-(a)) : (a))
 
 typedef struct SCN_STATE
 {
@@ -118,12 +108,17 @@ void gfx_swap_fg_bg()
     ctx.bg = aux;
 }
 
+void gfx_get_resolution( unsigned int* width, unsigned int* height )
+{
+    *width = ctx.W;
+    *height = ctx.H;
+}
+
 void gfx_get_term_size( unsigned int* rows, unsigned int* cols )
 {
     *rows = ctx.term.HEIGHT;
     *cols = ctx.term.WIDTH;
 }
-
 
 void gfx_clear()
 {
@@ -158,7 +153,6 @@ void gfx_scroll_down_dma( unsigned int npixels )
     *(BG+2) = *BG;
     *(BG+3) = *BG;
     unsigned int line_height = ctx.Pitch * npixels;
-
 
     dma_enqueue_operation( (unsigned int *)( ctx.pfb + line_height ),
                            (unsigned int *)( ctx.pfb ),
@@ -274,19 +268,19 @@ void gfx_line( int x0, int y0, int x1, int y1 )
     x1 = MAX( MIN(x1, (int)ctx.W), 0 );
     y1 = MAX( MIN(y1, (int)ctx.H), 0 );
 
-    unsigned char qrdt = __abs__(y1 - y0) > __abs__(x1 - x0);
+    unsigned char qrdt = ABS(y1 - y0) > ABS(x1 - x0);
 
     if( qrdt ) {
-        __swap__(&x0, &y0);
-        __swap__(&x1, &y1);
+        SWAP(x0, y0);
+        SWAP(x1, y1);
     }
     if( x0 > x1 ) {
-        __swap__(&x0, &x1);
-        __swap__(&y0, &y1);
+        SWAP(x0, x1);
+        SWAP(y0, y1);
     }
 
     const int deltax = x1 - x0;
-    const int deltay = __abs__(y1 - y0);
+    const int deltay = ABS(y1 - y0);
     register int error = deltax >> 1;
     register unsigned char* pfb;
     unsigned int nr = x1-x0;
@@ -424,7 +418,7 @@ void gfx_term_render_cursor_newline_dma()
 }
 
 
-void gfx_term_putstring( const char* str )
+void gfx_term_putstring( const char* str, unsigned int flags )
 {
     while( *str )
     {
@@ -441,7 +435,10 @@ void gfx_term_putstring( const char* str )
             case '\n':
                 gfx_restore_cursor_content();
                 ++ctx.term.cursor_row;
-                ctx.term.cursor_col = 0;
+                // DR: NO_IMPLICIT_CR: LF should not imply CR
+                if (!(flags & NO_IMPLICIT_CR)) {
+                    ctx.term.cursor_col = 0;
+                }
                 gfx_term_render_cursor();
                 break;
 
@@ -663,6 +660,7 @@ void state_fun_final_letter( char ch, scn_state *state )
                 gfx_term_move_cursor(0,0);
                 gfx_term_clear_screen();
             }
+            // DR: TODO: Implement partial clear?
             goto back_to_normal;
             break;
 
@@ -719,9 +717,11 @@ void state_fun_final_letter( char ch, scn_state *state )
             break;
 
         case 'H':
+        case 'f': // DR: Alternative move cursor sequence
             if( state->cmd_params_size == 2 )
             {
-                gfx_term_move_cursor( state->cmd_params[0], state->cmd_params[1]);
+                // DR: Origin is (1,1)
+                gfx_term_move_cursor( state->cmd_params[0]-1, state->cmd_params[1]-1);
             }
             else
                 gfx_term_move_cursor(0,0);
